@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+    app:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        container_name: laravel_app
+        restart: unless-stopped
+        working_dir: /var/www
+        volumes:
+            - ./:/var/www
+        networks:
+            - laravel_network
+        depends_on:
+            - db
+
+    webserver:
+        image: nginx:alpine
+        container_name: laravel_webserver
+        restart: unless-stopped
+        ports:
+            - "80:80"
+            - "443:443"
+        volumes:
+            - ./:/var/www
+            - .docker/nginx:/etc/nginx/conf.d
+        networks:
+            - laravel_network
+        depends_on:
+            - app
+
+    db:
+        image: mysql:8.0
+        container_name: laravel_db
+        restart: unless-stopped
+        environment:
+            MYSQL_ROOT_PASSWORD: secret
+            MYSQL_DATABASE: tasks_v2
+            MYSQL_USER: user_task
+            MYSQL_PASSWORD: secret_task
+        volumes:
+            - dbdata:/var/lib/mysql
+        ports:
+            - "3307:3306"
+        networks:
+            - laravel_network
+
+    sonarqube:
+        image: sonarqube:community
+        container_name: sonarqube
+        depends_on:
+            - sonardb
+        ports:
+            - "9000:9000"
+        environment:
+            - SONAR_JDBC_URL=jdbc:postgresql://sonardb:5432/sonar
+            - SONAR_JDBC_USERNAME=sonar
+            - SONAR_JDBC_PASSWORD=sonar
+        networks:
+            - laravel_network
+
+    sonardb:
+        image: postgres:13
+        container_name: sonar-db
+        restart: unless-stopped
+        environment:
+            POSTGRES_USER: sonar
+            POSTGRES_PASSWORD: sonar
+            POSTGRES_DB: sonar
+        volumes:
+            - sonar-db-data:/var/lib/postgresql/data
+        networks:
+            - laravel_network
+networks:
+    laravel_network:
+        driver: bridge
+
+volumes:
+    dbdata:
+        driver: local
+    sonar-db-data:
+        driver: local
